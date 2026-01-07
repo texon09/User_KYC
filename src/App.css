@@ -1,0 +1,27 @@
+.container {
+  height: 100vh;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  background-color: #0a0520; /* Your deep dark blue */
+  color: white;
+}
+
+.main-btn {
+  padding: 20px 50px;
+  font-size: 1.5rem;
+  background-color: aqua;
+  color: #0a0520;
+  border: none;
+  border-radius: 50px;
+  cursor: pointer;
+  font-weight: bold;
+  box-shadow: 0 0 20px rgba(0, 255, 255, 0.4);
+}
+
+.kyc-heading {
+  font-size: 3rem;
+  color: aqua;
+  text-transform: uppercase;
+  letter-spacing: 2px;
+}
