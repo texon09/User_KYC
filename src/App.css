@@ -1,0 +1,106 @@
+/* Identity Screen */
+.identity-screen {
+  color:rgb(245, 236, 236);
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  background: radial-gradient(circle, #0d0b33 0%, #0a0520 100%);
+}
+
+.role-container {
+  display: flex;
+  gap: 30px;
+  margin-top: 40px;
+}
+
+.role-card {
+  background: #161b33;
+  color:rgb(245, 236, 236);
+  padding: 40px;
+  border-radius: 20px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  text-align: center;
+  cursor: pointer;
+  width: 280px;
+  transition: all 0.3s ease;
+}
+
+.role-card:hover {
+  transform: translateY(-10px);
+  border-color: aqua;
+  box-shadow: 0 10px 30px rgba(0, 255, 255, 0.2);
+}
+
+.role-card .icon { font-size: 3rem; margin-bottom: 15px; }
+/* Login Box Styling */
+.login-box {
+  background: #161b33;
+  padding: 40px;
+  border-radius: 20px;
+  border: 1px solid aqua;
+  text-align: center;
+  width: 350px;
+  box-shadow: 0 0 30px rgba(0, 255, 255, 0.2);
+}
+
+.password-input {
+  width: 100%;
+  padding: 12px;
+  margin: 20px 0;
+  border-radius: 8px;
+  border: 1px solid #334155;
+  background: #0a0520;
+  color: white;
+}
+
+.error-msg {
+  color: #ff4d4d;
+  font-size: 0.85rem;
+  margin-bottom: 15px;
+}
+
+.btn-group {
+  display: flex;
+  gap: 10px;
+}
+
+.login-btn {
+  flex: 2;
+  background: aqua;
+  color: #0a0520;
+  border: none;
+  padding: 10px;
+  font-weight: bold;
+  border-radius: 5px;
+  cursor: pointer;
+}
+
+.back-btn {
+  flex: 1;
+  background: transparent;
+  color: white;
+  border: 1px solid #334155;
+  border-radius: 5px;
+  cursor: pointer;
+}
+
+/* Dashboard Content */
+.db-header {
+  padding: 20px 40px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-bottom: 1px solid #1e293b;
+}
+
+.status-banner {
+  background: rgba(0, 255, 255, 0.1);
+  color: aqua;
+  padding: 10px;
+  text-align: center;
+  border-radius: 8px;
+  margin-bottom: 20px;
+  font-weight: bold;
+}
