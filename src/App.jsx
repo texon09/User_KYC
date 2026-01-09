@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import "./Bot.css";
 
 const KYC_STEPS = [
@@ -12,8 +12,9 @@ const KYC_STEPS = [
   {
     id: "basic-info",
     title: "Basic information",
-    message: "Provide your legal identity details exactly as on your ID.",
-    hint: "Required: Legal name, date of birth, country of residence.",
+    message:
+      "Provide your legal identity details exactly as on your ID and verify your mobile number.",
+    hint: "Required: Legal name, date of birth, country of residence, mobile number.",
   },
   {
     id: "document-upload",
@@ -26,8 +27,8 @@ const KYC_STEPS = [
     id: "selfie-check",
     title: "Selfie / liveness",
     message:
-      "Take a selfie so we can confirm the document belongs to you.",
-    hint: "Face should be well lit and clearly visible.",
+      "Follow the liveness prompts: close your eyes, open them, and keep a straight face.",
+    hint: "Make sure your face is well lit and fully inside the frame.",
   },
   {
     id: "risk-checks",
@@ -46,16 +47,54 @@ const KYC_STEPS = [
 ];
 
 const STATUS_OPTIONS = [
-  { id: "ACCEPTED", label: "Accepted", accent: "status-accepted" },
+  { id: "REPORTED", label: "Reported", accent: "status-reported" },
+  { id: "FLAGGED", label: "Flagged", accent: "status-flagged" },
+  { id: "MANUAL_REVIEW", label: "Manual review", accent: "status-review" },
   {
     id: "UNDER_OBSERVATION",
     label: "Under observation",
     accent: "status-observation",
   },
-  { id: "MANUAL_REVIEW", label: "Manual review", accent: "status-review" },
-  { id: "FLAGGED", label: "Flagged", accent: "status-flagged" },
-  { id: "REPORTED", label: "Reported", accent: "status-reported" },
+  {
+    id: "ACCEPTED_UNDER_OBSERVATION",
+    label: "Accepted – under observation",
+    accent: "status-observation",
+  },
+  { id: "ACCEPTED", label: "Accepted", accent: "status-accepted" },
 ];
+
+const FIU_STATUS_META = {
+  REPORTED: {
+    modelMeaning: "Highest risk, must be reported immediately",
+    fiuCode: "STR_P1",
+    fiuMeaning: "Suspicious Transaction Report – Priority 1",
+  },
+  FLAGGED: {
+    modelMeaning: "Serious suspicion, needs escalation",
+    fiuCode: "STR_P2",
+    fiuMeaning: "Suspicious Transaction Report – Priority 2",
+  },
+  MANUAL_REVIEW: {
+    modelMeaning: "Analyst must review before any reporting",
+    fiuCode: "STR_REVIEW",
+    fiuMeaning: "Internal suspicious case under review",
+  },
+  UNDER_OBSERVATION: {
+    modelMeaning: "Risky, monitored more closely",
+    fiuCode: "MONITORING",
+    fiuMeaning: "Ongoing monitoring, no STR/CTR filed yet",
+  },
+  ACCEPTED_UNDER_OBSERVATION: {
+    modelMeaning: "Accepted but still watched for deterioration",
+    fiuCode: "CTR_MONITOR",
+    fiuMeaning: "Cash Transaction Report – accepted but monitored",
+  },
+  ACCEPTED: {
+    modelMeaning: "Cleared, normal behaviour",
+    fiuCode: "CTR_PASS",
+    fiuMeaning: "Cash Transaction Report – Cleared / Passed",
+  },
+};
 
 function App() {
   const [currentStep, setCurrentStep] = useState(0);
@@ -66,9 +105,26 @@ function App() {
   const [hoverContext, setHoverContext] = useState(null);
   const [theme, setTheme] = useState("dark");
 
-  // new: preview states
   const [documentPreview, setDocumentPreview] = useState(null);
-  const [selfiePreview, setSelfiePreview] = useState(null);
+
+  // selfie / liveness state
+  const [selfieCaptured, setSelfieCaptured] = useState(false);
+  const [selfieImageUrl, setSelfieImageUrl] = useState(null);
+  const [cameraError, setCameraError] = useState("");
+  const videoRef = useRef(null);
+  const canvasRef = useRef(null);
+  const streamRef = useRef(null);
+
+  // basic info + OTP state
+  const [fullName, setFullName] = useState("");
+  const [dob, setDob] = useState("");
+  const [country, setCountry] = useState("India");
+  const [phone, setPhone] = useState("");
+  const [otpSent, setOtpSent] = useState(false);
+  const [serverOtp, setServerOtp] = useState("");
+  const [otpInput, setOtpInput] = useState("");
+  const [otpVerified, setOtpVerified] = useState(false);
+  const [otpError, setOtpError] = useState("");
 
   const step = KYC_STEPS[currentStep];
   const totalSteps = KYC_STEPS.length;
@@ -93,13 +149,13 @@ function App() {
     setError("");
     setLastSuccessStep(step.id);
     setIsSubmitted(true);
+    stopCameraStream();
   };
 
   const toggleTheme = () => {
     setTheme((t) => (t === "dark" ? "light" : "dark"));
   };
 
-  // new: real file handling with previews (mocked upload)
   const handleDocumentChange = (event) => {
     const file = event.target.files?.[0];
     if (!file) return;
@@ -109,17 +165,7 @@ function App() {
     setLastSuccessStep("document-upload");
   };
 
-  const handleSelfieChange = (event) => {
-    const file = event.target.files?.[0];
-    if (!file) return;
-    const url = URL.createObjectURL(file);
-    setSelfiePreview({ name: file.name, url });
-    setError("");
-    setLastSuccessStep("selfie-check");
-  };
-
   const handleFakeUploadClick = () => {
-    // keep earlier random error behaviour but now on preview state
     const tooBig = Math.random() > 0.5;
     if (tooBig && step.id === "document-upload") {
       setError("Document size is too high. Please upload a file under 5 MB.");
@@ -128,6 +174,91 @@ function App() {
       goNext();
     }
   };
+
+  // ------- CAMERA / LIVENESS LOGIC -------
+  const requestCamera = async () => {
+    setCameraError("");
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: "user" },
+        audio: false,
+      });
+      if (videoRef.current) {
+        videoRef.current.srcObject = stream;
+        videoRef.current.play();
+      }
+      streamRef.current = stream;
+    } catch (err) {
+      setCameraError("Unable to access camera. Please allow camera permission.");
+    }
+  };
+
+  const stopCameraStream = () => {
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach((t) => t.stop());
+      streamRef.current = null;
+    }
+  };
+
+  const captureSelfie = () => {
+    const video = videoRef.current;
+    const canvas = canvasRef.current;
+    if (!video || !canvas) return;
+
+    const width = video.videoWidth || 480;
+    const height = video.videoHeight || 360;
+    canvas.width = width;
+    canvas.height = height;
+
+    const ctx = canvas.getContext("2d");
+    ctx.drawImage(video, 0, 0, width, height);
+    const dataUrl = canvas.toDataURL("image/png");
+    setSelfieImageUrl(dataUrl);
+    setSelfieCaptured(true);
+    setLastSuccessStep("selfie-check");
+  };
+
+  // stop camera when leaving selfie step
+  useEffect(() => {
+    if (KYC_STEPS[currentStep].id !== "selfie-check") {
+      stopCameraStream();
+    }
+  }, [currentStep]);
+
+  // ---------- OTP helpers ----------
+  const canRequestOtp =
+    fullName.trim() && dob && country.trim() && phone.trim().length >= 10;
+
+  const handleSendOtp = () => {
+    setOtpError("");
+    if (!canRequestOtp) {
+      setOtpError("Fill name, date of birth, country, and a valid phone number first.");
+      return;
+    }
+    const code = Math.floor(100000 + Math.random() * 900000).toString();
+    setServerOtp(code);
+    setOtpSent(true);
+    setOtpVerified(false);
+    setOtpInput("");
+    // In real app this is where the SMS API call would go.
+  };
+
+  const handleVerifyOtp = () => {
+    if (!otpSent) {
+      setOtpError("Please request an OTP first.");
+      return;
+    }
+    if (otpInput.trim() === serverOtp) {
+      setOtpVerified(true);
+      setOtpError("");
+      setLastSuccessStep("basic-info");
+    } else {
+      setOtpVerified(false);
+      setOtpError("Incorrect OTP. Please try again.");
+    }
+  };
+
+  const basicInfoNextDisabled = !otpVerified;
 
   // ---------- STATUS PAGE ----------
   if (isSubmitted) {
@@ -208,6 +339,41 @@ function App() {
                   ))}
                 </div>
               </div>
+
+              <div className="status-fiu-block">
+                <p className="status-label">FIU-style mapping</p>
+                <table className="status-fiu-table">
+                  <thead>
+                    <tr>
+                      <th>Internal status (model)</th>
+                      <th>Meaning (platform)</th>
+                      <th>FIU-style code</th>
+                      <th>Meaning (FIU-style)</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {STATUS_OPTIONS.map((opt) => {
+                      const meta = FIU_STATUS_META[opt.id];
+                      if (!meta) return null;
+                      return (
+                        <tr
+                          key={opt.id}
+                          className={
+                            opt.id === selectedStatus
+                              ? "status-fiu-row-active"
+                              : ""
+                          }
+                        >
+                          <td>{opt.id}</td>
+                          <td>{meta.modelMeaning}</td>
+                          <td>{meta.fiuCode}</td>
+                          <td>{meta.fiuMeaning}</td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
             </div>
 
             <div className="steps-footer-row">
@@ -254,9 +420,9 @@ function App() {
 
       <header className="kyc-topbar">
         <div className="topbar-left">
-          <div className="brand-mark">FinKYC</div>
+          <div className="brand-mark">ASTUCOMPLY</div>
           <div className="brand-subtitle">
-            Secure KYC & AML verification
+            Perfect Saathi for KYC and AML
           </div>
         </div>
         <div className="topbar-right">
@@ -271,7 +437,6 @@ function App() {
       </header>
 
       <main className="main-layout">
-        {/* center steps column */}
         <section className="steps-column">
           <div className="canvas-header">
             <p className="step-chip">Identity verification flow</p>
@@ -303,8 +468,8 @@ function App() {
                   <div className="gamified-icon">🛡️</div>
                   <h3>Security score</h3>
                   <p>
-                    Each completed step boosts your security score and keeps
-                    your funds safer.
+                    KYC and AML checks help keep your funds and identity
+                    protected.
                   </p>
                 </article>
               </>
@@ -319,7 +484,11 @@ function App() {
                 >
                   <label>
                     Full name
-                    <input placeholder="As per PAN / Aadhaar" />
+                    <input
+                      placeholder="As per PAN / Aadhaar"
+                      value={fullName}
+                      onChange={(e) => setFullName(e.target.value)}
+                    />
                   </label>
                 </div>
                 <div
@@ -329,7 +498,11 @@ function App() {
                 >
                   <label>
                     Date of birth
-                    <input type="date" />
+                    <input
+                      type="date"
+                      value={dob}
+                      onChange={(e) => setDob(e.target.value)}
+                    />
                   </label>
                 </div>
                 <div
@@ -339,8 +512,62 @@ function App() {
                 >
                   <label>
                     Country of residence
-                    <input placeholder="India" />
+                    <input
+                      placeholder="India"
+                      value={country}
+                      onChange={(e) => setCountry(e.target.value)}
+                    />
                   </label>
+                </div>
+
+                <div
+                  className="step-card"
+                  onMouseEnter={() => setHoverContext("phone")}
+                  onMouseLeave={() => setHoverContext(null)}
+                >
+                  <label>
+                    Mobile number
+                    <input
+                      type="tel"
+                      placeholder="+91 98765 43210"
+                      value={phone}
+                      onChange={(e) => setPhone(e.target.value)}
+                    />
+                  </label>
+                  <div className="otp-row">
+                    <button
+                      type="button"
+                      className="btn-secondary"
+                      onClick={handleSendOtp}
+                      disabled={!canRequestOtp}
+                    >
+                      {otpSent ? "Resend OTP" : "Send OTP"}
+                    </button>
+                    <input
+                      className="otp-input"
+                      placeholder="Enter OTP"
+                      value={otpInput}
+                      onChange={(e) => setOtpInput(e.target.value)}
+                    />
+                    <button
+                      type="button"
+                      className="btn-primary"
+                      onClick={handleVerifyOtp}
+                      disabled={!otpSent}
+                    >
+                      Verify
+                    </button>
+                  </div>
+                  <span className="field-hint">
+                    An OTP will be sent to this number. Verify it before
+                    continuing.
+                  </span>
+                  {otpVerified && (
+                    <div className="otp-success">Mobile number verified.</div>
+                  )}
+                  {otpError && (
+                    <div className="error-banner otp-error">{otpError}</div>
+                  )}
                 </div>
               </>
             )}
@@ -399,7 +626,6 @@ function App() {
                     </div>
                   </label>
 
-                  {/* inner preview box */}
                   <div className="inner-preview-box">
                     {documentPreview ? (
                       <>
@@ -429,56 +655,86 @@ function App() {
                 onMouseEnter={() => setHoverContext("selfie")}
                 onMouseLeave={() => setHoverContext(null)}
               >
-                <h3>Selfie capture</h3>
+                <h3>Selfie / liveness capture</h3>
                 <p>
-                  Allow camera access and look straight at the screen. Keep your
-                  face centered inside the frame.
+                  Allow camera access and follow the prompts: first look
+                  straight, then close your eyes, then open them again.
                 </p>
 
                 <div className="selfie-layout">
                   <div className="selfie-upload">
-                    <input
-                      id="selfie-upload-input"
-                      type="file"
-                      accept="image/*"
-                      onChange={handleSelfieChange}
-                    />
-                    <button
-                      type="button"
-                      className="btn-secondary"
-                      onClick={() =>
-                        document
-                          .getElementById("selfie-upload-input")
-                          ?.click()
-                      }
-                    >
-                      Upload selfie
-                    </button>
+                    <div className="live-video-shell">
+                      <video
+                        ref={videoRef}
+                        className="live-video"
+                        autoPlay
+                        playsInline
+                        muted
+                      />
+                      {!streamRef.current && (
+                        <div className="live-video-overlay">
+                          <p>Camera is off.</p>
+                          <p>Click “Allow camera” to start liveness check.</p>
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="selfie-actions-row">
+                      <button
+                        type="button"
+                        className="btn-secondary"
+                        onClick={requestCamera}
+                      >
+                        Allow camera
+                      </button>
+                      <button
+                        type="button"
+                        className="btn-primary"
+                        onClick={captureSelfie}
+                        disabled={!streamRef.current}
+                      >
+                        Capture frame
+                      </button>
+                    </div>
+
                     <span className="field-hint">
-                      Use a live selfie, not a photo of a screen.
+                      Keep your entire face visible. Perform the prompts within
+                      the next few seconds.
                     </span>
+
+                    {cameraError && (
+                      <div className="error-banner selfie-error">
+                        {cameraError}
+                      </div>
+                    )}
                   </div>
 
                   <div className="inner-preview-box selfie-preview-box">
-                    {selfiePreview ? (
+                    {selfieCaptured && selfieImageUrl ? (
                       <>
                         <div className="preview-label">
-                          Selfie preview ({selfiePreview.name})
+                          Captured liveness frame
                         </div>
                         <div className="preview-frame selfie-frame">
                           <img
-                            src={selfiePreview.url}
+                            src={selfieImageUrl}
                             alt="Selfie preview"
                           />
                         </div>
                       </>
                     ) : (
                       <div className="preview-placeholder">
-                        Your selfie preview will appear here.
+                        Your captured frame will appear here after you click
+                        “Capture frame”.
                       </div>
                     )}
                   </div>
                 </div>
+
+                <canvas
+                  ref={canvasRef}
+                  style={{ display: "none" }}
+                />
               </div>
             )}
 
@@ -544,7 +800,9 @@ function App() {
               </div>
             )}
 
-            {error && <div className="error-banner">{error}</div>}
+            {(error || cameraError) && (
+              <div className="error-banner">{error || cameraError}</div>
+            )}
           </div>
 
           <div className="steps-footer-row">
@@ -556,7 +814,19 @@ function App() {
               Back
             </button>
 
-            {step.id !== "document-upload" &&
+            {step.id === "basic-info" && (
+              <button
+                type="button"
+                className="btn-primary"
+                onClick={goNext}
+                disabled={basicInfoNextDisabled}
+              >
+                Next
+              </button>
+            )}
+
+            {step.id !== "basic-info" &&
+              step.id !== "document-upload" &&
               step.id !== "completed" &&
               step.id !== "selfie-check" && (
                 <button
@@ -573,7 +843,7 @@ function App() {
                 type="button"
                 className="btn-primary"
                 onClick={goNext}
-                disabled={!selfiePreview}
+                disabled={!selfieCaptured}
               >
                 Continue
               </button>
@@ -601,7 +871,7 @@ function App() {
           step={step}
           stepIndex={currentStep}
           totalSteps={totalSteps}
-          hasError={Boolean(error)}
+          hasError={Boolean(error) || Boolean(cameraError) || Boolean(otpError)}
           lastSuccessStep={lastSuccessStep}
           hoverContext={hoverContext}
         />
@@ -617,10 +887,13 @@ function VerticalProgress({ progress, currentStep, totalSteps }) {
         <div
           className="vertical-fill"
           style={{ height: `${progress}%` }}
-        />
+        >
+          <div className="vertical-fill-label">
+            {progress}% 
+          </div>
+        </div>
       </div>
 
-      {/* fintech arrow + emojis + percentage */}
       <div className="vertical-arrow-info">
         <div className="arrow-line" />
         <div className="arrow-head" />
@@ -638,7 +911,6 @@ function VerticalProgress({ progress, currentStep, totalSteps }) {
   );
 }
 
-
 function FinBot({
   step,
   stepIndex,
@@ -655,7 +927,7 @@ function FinBot({
   const isSad = hasError || status === "FLAGGED" || status === "REPORTED";
   const isNeutral = !isHappy && !isSad;
 
-  const hoverMessages = {
+    const hoverMessages = {
     "welcome-intro":
       "This is a quick overview of what we will collect. You can always return to this screen.",
     "security-summary":
@@ -664,12 +936,14 @@ function FinBot({
       "Enter your full legal name exactly as on your official ID document.",
     dob: "Use the same date of birth that appears on your ID.",
     country: "We use your country of residence to apply the correct KYC rules.",
+    phone:
+      "Use your mobile number linked with id .",
     "document-type":
       "Choose the document you are about to upload so we can validate it correctly.",
     "document-upload":
       "Upload a clear, uncropped image or PDF. Avoid screenshots or very dark photos.",
     selfie:
-      "Keep your device steady and look straight. We only use this selfie for verification.",
+      "For liveness, look straight, then close your eyes, then open them again while staying inside the frame.",
     "sanctions-check":
       "Sanctions screening checks your name against global restricted lists.",
     "pep-check":
@@ -679,6 +953,7 @@ function FinBot({
     "submit-form":
       "Submitting sends your data securely to our compliance systems for final decisioning.",
   };
+
 
   const hoverText = hoverContext ? hoverMessages[hoverContext] : null;
 
@@ -749,19 +1024,22 @@ function FinBot({
 
       <div className="bot-speech">
         <div className="speech-header">
-          <span className="speech-title">FinBot</span>
-          <span className="speech-tag">Your KYC guide</span>
+          <span className="speech-title">ASTUCOMPLY</span>
+          <span className="speech-tag">Perfect Saathi for KYC and AML</span>
         </div>
         <p className="speech-main">
           {hasError
-            ? "Oops, that did not go through. Try a smaller file and I’ll process it right away."
+            ? "Check your inputs, uploads, camera, or OTP and then try again."
             : hoverText
             ? hoverText
             : step.message}
         </p>
         <p className="speech-sub">
           {isCompleted && status
-            ? `Current status: ${status.replace("_", " ")}. You can revisit this page from your profile.`
+            ? `Current status: ${status?.replace(
+                "_",
+                " "
+              )}. You can revisit this page from your profile.`
             : `Progress: step ${stepIndex + 1} of ${totalSteps}. Hover over any card to get more guidance from me.`}
         </p>
       </div>
