@@ -230,27 +230,32 @@ function App() {
     fullName.trim() && dob && country.trim() && phone.trim().length >= 10;
 
   const handleSendOtp = () => {
-    setOtpError("");
-    if (!canRequestOtp) {
-      setOtpError("Fill name, date of birth, country, and a valid phone number first.");
-      return;
-    }
-    const code = Math.floor(100000 + Math.random() * 900000).toString();
-    setServerOtp(code);
-    setOtpSent(true);
-    setOtpVerified(false);
-    setOtpInput("");
-    // In real app this is where the SMS API call would go.
-  };
+  setOtpError("");
+  if (!canRequestOtp) {
+    setOtpError(
+      "Fill name, date of birth, country, and a valid phone number first."
+    );
+    return;
+  }
+
+  const code = Math.floor(100000 + Math.random() * 900000).toString();
+  setServerOtp(code);
+  setOtpSent(true);
+  setOtpInput("");
+
+  // TEMP: show OTP in toast / inline for testing
+  alert(`Demo OTP: ${code}`);
+};
+
 
   const handleVerifyOtp = () => {
+    setOtpError("");
     if (!otpSent) {
       setOtpError("Please request an OTP first.");
       return;
     }
     if (otpInput.trim() === serverOtp) {
       setOtpVerified(true);
-      setOtpError("");
       setLastSuccessStep("basic-info");
     } else {
       setOtpVerified(false);
@@ -420,9 +425,9 @@ function App() {
 
       <header className="kyc-topbar">
         <div className="topbar-left">
-          <div className="brand-mark">ASTUCOMPLY</div>
+          <div className="brand-mark">FinKYC</div>
           <div className="brand-subtitle">
-            Perfect Saathi for KYC and AML
+            Secure KYC & AML verification
           </div>
         </div>
         <div className="topbar-right">
@@ -537,7 +542,7 @@ function App() {
                   <div className="otp-row">
                     <button
                       type="button"
-                      className="btn-secondary"
+                      className="btn-secondary otp-send-btn"
                       onClick={handleSendOtp}
                       disabled={!canRequestOtp}
                     >
@@ -551,7 +556,7 @@ function App() {
                     />
                     <button
                       type="button"
-                      className="btn-primary"
+                      className="btn-primary otp-verify-btn"
                       onClick={handleVerifyOtp}
                       disabled={!otpSent}
                     >
@@ -888,9 +893,7 @@ function VerticalProgress({ progress, currentStep, totalSteps }) {
           className="vertical-fill"
           style={{ height: `${progress}%` }}
         >
-          <div className="vertical-fill-label">
-            {progress}% 
-          </div>
+          <div className="vertical-fill-label">{progress}%</div>
         </div>
       </div>
 
@@ -927,7 +930,7 @@ function FinBot({
   const isSad = hasError || status === "FLAGGED" || status === "REPORTED";
   const isNeutral = !isHappy && !isSad;
 
-    const hoverMessages = {
+  const hoverMessages = {
     "welcome-intro":
       "This is a quick overview of what we will collect. You can always return to this screen.",
     "security-summary":
@@ -937,7 +940,7 @@ function FinBot({
     dob: "Use the same date of birth that appears on your ID.",
     country: "We use your country of residence to apply the correct KYC rules.",
     phone:
-      "Use your mobile number linked with id .",
+      "Use a mobile number you can access right now so you can enter the OTP.",
     "document-type":
       "Choose the document you are about to upload so we can validate it correctly.",
     "document-upload":
@@ -953,7 +956,6 @@ function FinBot({
     "submit-form":
       "Submitting sends your data securely to our compliance systems for final decisioning.",
   };
-
 
   const hoverText = hoverContext ? hoverMessages[hoverContext] : null;
 
@@ -1024,8 +1026,8 @@ function FinBot({
 
       <div className="bot-speech">
         <div className="speech-header">
-          <span className="speech-title">ASTUCOMPLY</span>
-          <span className="speech-tag">Perfect Saathi for KYC and AML</span>
+          <span className="speech-title">FinBot</span>
+          <span className="speech-tag">Your KYC guide</span>
         </div>
         <p className="speech-main">
           {hasError
