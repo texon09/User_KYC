@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState } from "react";
 import "./Bot.css";
 
+const API_BASE = "http://localhost:8000";
+
 const KYC_STEPS = [
   {
     id: "welcome",
@@ -99,23 +101,14 @@ const FIU_STATUS_META = {
 function App() {
   const [currentStep, setCurrentStep] = useState(0);
   const [error, setError] = useState("");
+  const [apiError, setApiError] = useState("");
   const [lastSuccessStep, setLastSuccessStep] = useState(null);
   const [isSubmitted, setIsSubmitted] = useState(false);
   const [selectedStatus, setSelectedStatus] = useState("ACCEPTED");
   const [hoverContext, setHoverContext] = useState(null);
   const [theme, setTheme] = useState("dark");
 
-  const [documentPreview, setDocumentPreview] = useState(null);
-
-  // selfie / liveness state
-  const [selfieCaptured, setSelfieCaptured] = useState(false);
-  const [selfieImageUrl, setSelfieImageUrl] = useState(null);
-  const [cameraError, setCameraError] = useState("");
-  const videoRef = useRef(null);
-  const canvasRef = useRef(null);
-  const streamRef = useRef(null);
-
-  // basic info + OTP state
+  // basic info + OTP
   const [fullName, setFullName] = useState("");
   const [dob, setDob] = useState("");
   const [country, setCountry] = useState("India");
@@ -126,12 +119,36 @@ function App() {
   const [otpVerified, setOtpVerified] = useState(false);
   const [otpError, setOtpError] = useState("");
 
+  // KYC document info
+  const [documentType, setDocumentType] = useState("PAN");
+  const [documentPreview, setDocumentPreview] = useState(null);
+  const [panFile, setPanFile] = useState(null);
+  const [aadhaarFile, setAadhaarFile] = useState(null);
+  const [panNumber, setPanNumber] = useState("");
+  const [aadhaarNumber, setAadhaarNumber] = useState("");
+  const [address, setAddress] = useState("");
+
+  // backend results
+  const [backendPanResult, setBackendPanResult] = useState(null);
+  const [backendAadhaarResult, setBackendAadhaarResult] = useState(null);
+  const [backendVerifyResult, setBackendVerifyResult] = useState(null);
+  const [isLoading, setIsLoading] = useState(false);
+
+  // selfie / liveness
+  const [selfieCaptured, setSelfieCaptured] = useState(false);
+  const [selfieImageUrl, setSelfieImageUrl] = useState(null);
+  const [cameraError, setCameraError] = useState("");
+  const videoRef = useRef(null);
+  const canvasRef = useRef(null);
+  const streamRef = useRef(null);
+
   const step = KYC_STEPS[currentStep];
   const totalSteps = KYC_STEPS.length;
   const progress = Math.round(((currentStep + 1) / totalSteps) * 100);
 
   const goNext = () => {
     setError("");
+    setApiError("");
     if (currentStep < totalSteps - 1) {
       setCurrentStep((s) => s + 1);
       setLastSuccessStep(step.id);
@@ -140,42 +157,137 @@ function App() {
 
   const goBack = () => {
     setError("");
+    setApiError("");
     if (currentStep > 0) {
       setCurrentStep((s) => s - 1);
     }
-  };
-
-  const handleSubmitForm = () => {
-    setError("");
-    setLastSuccessStep(step.id);
-    setIsSubmitted(true);
-    stopCameraStream();
   };
 
   const toggleTheme = () => {
     setTheme((t) => (t === "dark" ? "light" : "dark"));
   };
 
+  // document change: store file + preview + map to PAN/Aadhaar
   const handleDocumentChange = (event) => {
     const file = event.target.files?.[0];
     if (!file) return;
+
+    if (documentType === "PAN") {
+      setPanFile(file);
+    } else if (documentType === "AADHAAR") {
+      setAadhaarFile(file);
+    }
+
     const url = URL.createObjectURL(file);
     setDocumentPreview({ name: file.name, url });
     setError("");
+    setApiError("");
     setLastSuccessStep("document-upload");
   };
 
-  const handleFakeUploadClick = () => {
-    const tooBig = Math.random() > 0.5;
-    if (tooBig && step.id === "document-upload") {
-      setError("Document size is too high. Please upload a file under 5 MB.");
-    } else {
-      setError("");
+  // call /kyc/pan or /kyc/aadhaar
+  const handleUploadAndExtract = async () => {
+    setError("");
+    setApiError("");
+
+    const file =
+      documentType === "PAN" ? panFile : documentType === "AADHAAR" ? aadhaarFile : null;
+
+    if (!file) {
+      setError("Please choose a document file before continuing.");
+      return;
+    }
+
+    if (documentType === "PASSPORT") {
+      setError("Backend supports PAN and Aadhaar extraction currently.");
+      return;
+    }
+
+    const formData = new FormData();
+    formData.append("file", file);
+
+    let endpoint = "";
+    if (documentType === "PAN") endpoint = "/kyc/pan";
+    if (documentType === "AADHAAR") endpoint = "/kyc/aadhaar";
+
+    setIsLoading(true);
+    try {
+      const res = await fetch(`${API_BASE}${endpoint}`, {
+        method: "POST",
+        body: formData,
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        setApiError(data.detail || data.message || "Document extraction failed.");
+        return;
+      }
+
+      if (endpoint === "/kyc/pan") {
+        setBackendPanResult(data);
+        // auto-fill PAN number if extracted
+        if (data.pan) setPanNumber(data.pan);
+      }
+      if (endpoint === "/kyc/aadhaar") {
+        setBackendAadhaarResult(data);
+        if (data.aadhaar) setAadhaarNumber(data.aadhaar);
+        if (data.extracted_data?.address) setAddress(data.extracted_data.address);
+      }
+
+      setLastSuccessStep("document-upload");
       goNext();
+    } catch (err) {
+      setApiError("Network or server error while processing document.");
+    } finally {
+      setIsLoading(false);
     }
   };
 
-  // ------- CAMERA / LIVENESS LOGIC -------
+  // final /kyc/verify call
+  const handleSubmitForm = async () => {
+    setError("");
+    setApiError("");
+
+    if (!panFile || !aadhaarFile) {
+      setError("Please upload both PAN and Aadhaar before submitting.");
+      return;
+    }
+
+    setIsLoading(true);
+    try {
+      const formData = new FormData();
+      formData.append("pan_file", panFile);
+      formData.append("aadhaar_file", aadhaarFile);
+      formData.append("name", fullName || "");
+      formData.append("pan_number", panNumber || "");
+      formData.append("aadhaar_number", aadhaarNumber || "");
+      formData.append("date_of_birth", dob || "");
+      formData.append("address", address || "");
+
+      const res = await fetch(`${API_BASE}/kyc/verify`, {
+        method: "POST",
+        body: formData,
+      });
+      const data = await res.json();
+
+      if (!res.ok) {
+        setApiError(data.detail || "Verification failed.");
+        return;
+      }
+
+      setBackendVerifyResult(data);
+      setLastSuccessStep("completed");
+      setIsSubmitted(true);
+      stopCameraStream();
+    } catch (err) {
+      setApiError("Network or server error during final verification.");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // ------- CAMERA / LIVENESS -------
   const requestCamera = async () => {
     setCameraError("");
     try {
@@ -218,35 +330,30 @@ function App() {
     setLastSuccessStep("selfie-check");
   };
 
-  // stop camera when leaving selfie step
   useEffect(() => {
     if (KYC_STEPS[currentStep].id !== "selfie-check") {
       stopCameraStream();
     }
   }, [currentStep]);
 
-  // ---------- OTP helpers ----------
+  // ---------- OTP ----------
   const canRequestOtp =
     fullName.trim() && dob && country.trim() && phone.trim().length >= 10;
 
   const handleSendOtp = () => {
-  setOtpError("");
-  if (!canRequestOtp) {
-    setOtpError(
-      "Fill name, date of birth, country, and a valid phone number first."
-    );
-    return;
-  }
-
-  const code = Math.floor(100000 + Math.random() * 900000).toString();
-  setServerOtp(code);
-  setOtpSent(true);
-  setOtpInput("");
-
-  // TEMP: show OTP in toast / inline for testing
-  alert(`Demo OTP: ${code}`);
-};
-
+    setOtpError("");
+    if (!canRequestOtp) {
+      setOtpError(
+        "Fill name, date of birth, country, and a valid phone number first."
+      );
+      return;
+    }
+    const code = Math.floor(100000 + Math.random() * 900000).toString();
+    setServerOtp(code);
+    setOtpSent(true);
+    setOtpInput("");
+    alert(`Demo OTP: ${code}`);
+  };
 
   const handleVerifyOtp = () => {
     setOtpError("");
@@ -310,7 +417,7 @@ function App() {
               <div className="status-header">
                 <div className="status-icon-ring">
                   <div className={`status-icon ${statusMeta.accent}`}>
-                    <span className="status-icon-symbol">✓</span>
+                    <span className="status-icon-symbol" />
                   </div>
                 </div>
                 <div>
@@ -336,7 +443,9 @@ function App() {
                         "status-pill",
                         opt.id === selectedStatus ? "status-pill-active" : "",
                         opt.accent,
-                      ].join(" ")}
+                      ]
+                        .filter(Boolean)
+                        .join(" ")}
                       onClick={() => setSelectedStatus(opt.id)}
                     >
                       {opt.label}
@@ -379,13 +488,71 @@ function App() {
                   </tbody>
                 </table>
               </div>
+
+              {backendVerifyResult && (
+                <section className="verification-details">
+                  <h3>Verification scores</h3>
+                  <p>
+                    Overall match:{" "}
+                    {backendVerifyResult.verification_result.overall_match
+                      ? "Yes"
+                      : "No"}
+                  </p>
+                  <p>
+                    Overall score:{" "}
+                    {backendVerifyResult.verification_result.overall_score}%
+                  </p>
+                  <p>Decision time: {backendVerifyResult.timestamp}</p>
+
+                  <table className="field-scores-table">
+                    <thead>
+                      <tr>
+                        <th>Field</th>
+                        <th>Extracted</th>
+                        <th>Provided</th>
+                        <th>Score (%)</th>
+                        <th>Match</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {backendVerifyResult.verification_result.field_scores.map(
+                        (row) => (
+                          <tr key={row.field}>
+                            <td>{row.field}</td>
+                            <td>{row.extracted}</td>
+                            <td>{row.provided}</td>
+                            <td>{row.score}</td>
+                            <td>{row.match ? "Yes" : "No"}</td>
+                          </tr>
+                        )
+                      )}
+                    </tbody>
+                  </table>
+
+                  <h4>Extracted data (combined)</h4>
+                  <pre className="json-preview">
+                    {JSON.stringify(
+                      backendVerifyResult.verification_result.extracted_data,
+                      null,
+                      2
+                    )}
+                  </pre>
+                </section>
+              )}
+
+              {apiError && (
+                <div className="error-banner error">{apiError}</div>
+              )}
             </div>
 
             <div className="steps-footer-row">
               <button
                 type="button"
                 className="btn-secondary"
-                onClick={() => setIsSubmitted(false)}
+                onClick={() => {
+                  setIsSubmitted(false);
+                  setSelectedStatus("ACCEPTED");
+                }}
               >
                 Back to KYC flow
               </button>
@@ -400,13 +567,12 @@ function App() {
             currentStep={currentStep}
             totalSteps={totalSteps}
           />
-
           <FinBot
-            step={{ id: "completed", title: "Completed", message: "" }}
+            step={step}
             stepIndex={currentStep}
             totalSteps={totalSteps}
-            hasError={false}
-            lastSuccessStep={"completed"}
+            hasError={Boolean(error || cameraError || otpError || apiError)}
+            lastSuccessStep={lastSuccessStep}
             status={selectedStatus}
             hoverContext={hoverContext}
           />
@@ -427,15 +593,11 @@ function App() {
         <div className="topbar-left">
           <div className="brand-mark">FinKYC</div>
           <div className="brand-subtitle">
-            Secure KYC & AML verification
+            Secure KYC &amp; AML verification
           </div>
         </div>
         <div className="topbar-right">
-          <button
-            type="button"
-            className="theme-toggle"
-            onClick={toggleTheme}
-          >
+          <button type="button" className="theme-toggle" onClick={toggleTheme}>
             {theme === "dark" ? "Light mode" : "Dark mode"}
           </button>
         </div>
@@ -458,19 +620,20 @@ function App() {
                   onMouseEnter={() => setHoverContext("welcome-intro")}
                   onMouseLeave={() => setHoverContext(null)}
                 >
-                  <div className="gamified-icon">🎮</div>
+                  <div className="gamified-icon" />
                   <h3>Level 1: Get started</h3>
                   <p>
                     You are beginning your KYC journey. Complete each step to
                     unlock your verified account badge.
                   </p>
                 </article>
+
                 <article
                   className="step-card gamified-card"
                   onMouseEnter={() => setHoverContext("security-summary")}
                   onMouseLeave={() => setHoverContext(null)}
                 >
-                  <div className="gamified-icon">🛡️</div>
+                  <div className="gamified-icon" />
                   <h3>Security score</h3>
                   <p>
                     KYC and AML checks help keep your funds and identity
@@ -482,7 +645,7 @@ function App() {
 
             {step.id === "basic-info" && (
               <>
-                <div
+                <article
                   className="step-card"
                   onMouseEnter={() => setHoverContext("full-name")}
                   onMouseLeave={() => setHoverContext(null)}
@@ -495,8 +658,9 @@ function App() {
                       onChange={(e) => setFullName(e.target.value)}
                     />
                   </label>
-                </div>
-                <div
+                </article>
+
+                <article
                   className="step-card"
                   onMouseEnter={() => setHoverContext("dob")}
                   onMouseLeave={() => setHoverContext(null)}
@@ -509,8 +673,9 @@ function App() {
                       onChange={(e) => setDob(e.target.value)}
                     />
                   </label>
-                </div>
-                <div
+                </article>
+
+                <article
                   className="step-card"
                   onMouseEnter={() => setHoverContext("country")}
                   onMouseLeave={() => setHoverContext(null)}
@@ -523,9 +688,9 @@ function App() {
                       onChange={(e) => setCountry(e.target.value)}
                     />
                   </label>
-                </div>
+                </article>
 
-                <div
+                <article
                   className="step-card"
                   onMouseEnter={() => setHoverContext("phone")}
                   onMouseLeave={() => setHoverContext(null)}
@@ -568,74 +733,110 @@ function App() {
                     continuing.
                   </span>
                   {otpVerified && (
-                    <div className="otp-success">Mobile number verified.</div>
+                    <div className="otp-success">
+                      Mobile number verified.
+                    </div>
                   )}
                   {otpError && (
                     <div className="error-banner otp-error">{otpError}</div>
                   )}
-                </div>
+                </article>
+
+                <article className="step-card">
+                  <label>
+                    PAN number (as provided)
+                    <input
+                      placeholder="ABCDE1234F"
+                      value={panNumber}
+                      onChange={(e) => setPanNumber(e.target.value)}
+                    />
+                  </label>
+                  <label>
+                    Aadhaar number (as provided)
+                    <input
+                      placeholder="1234 5678 9012"
+                      value={aadhaarNumber}
+                      onChange={(e) => setAadhaarNumber(e.target.value)}
+                    />
+                  </label>
+                </article>
+
+                <article className="step-card">
+                  <label>
+                    Address
+                    <textarea
+                      placeholder="As per Aadhaar / official proof"
+                      value={address}
+                      onChange={(e) => setAddress(e.target.value)}
+                    />
+                  </label>
+                </article>
               </>
             )}
 
             {step.id === "document-upload" && (
               <>
-                <div
+                <article
                   className="step-card"
                   onMouseEnter={() => setHoverContext("document-type")}
                   onMouseLeave={() => setHoverContext(null)}
                 >
                   <label>
                     Document type
-                    <select>
-                      <option>PAN</option>
-                      <option>Aadhaar</option>
-                      <option>Passport</option>
+                    <select
+                      value={documentType}
+                      onChange={(e) => setDocumentType(e.target.value)}
+                    >
+                      <option value="PAN">PAN</option>
+                      <option value="AADHAAR">Aadhaar</option>
+                      <option value="PASSPORT">Passport</option>
                     </select>
                   </label>
-                </div>
+                </article>
 
-                <div
+                <article
                   className="step-card upload-block"
                   onMouseEnter={() => setHoverContext("document-upload")}
                   onMouseLeave={() => setHoverContext(null)}
                 >
-                  <label>
-                    Upload document
-                    <div className="upload-area">
-                      <input
-                        id="doc-upload-input"
-                        type="file"
-                        onChange={handleDocumentChange}
-                      />
-                      <button
-                        type="button"
-                        className="btn-secondary"
-                        onClick={() =>
-                          document.getElementById("doc-upload-input")?.click()
-                        }
-                      >
-                        Choose file
-                      </button>
-                      <button
-                        type="button"
-                        className="btn-primary upload-continue-btn"
-                        onClick={handleFakeUploadClick}
-                        disabled={!documentPreview}
-                      >
-                        Upload & continue
-                      </button>
-                      <span className="field-hint">
-                        Use a clear, uncropped image. Avoid screenshots of your
-                        document.
-                      </span>
-                    </div>
-                  </label>
+                  <label>Upload document</label>
+                  <div className="upload-area">
+                    <input
+                      id="doc-upload-input"
+                      type="file"
+                      onChange={handleDocumentChange}
+                    />
+                    <button
+                      type="button"
+                      className="btn-secondary"
+                      onClick={() =>
+                        document
+                          .getElementById("doc-upload-input")
+                          ?.click()
+                      }
+                    >
+                      Choose file
+                    </button>
+                    <button
+                      type="button"
+                      className="btn-primary upload-continue-btn"
+                      onClick={handleUploadAndExtract}
+                      disabled={!documentPreview || isLoading}
+                    >
+                      {isLoading ? "Processing..." : "Upload & extract"}
+                    </button>
+                    <span className="field-hint">
+                      Use a clear, uncropped image. Avoid screenshots of your
+                      document.
+                    </span>
+                  </div>
 
+                  <label>Preview</label>
                   <div className="inner-preview-box">
                     {documentPreview ? (
                       <>
                         <div className="preview-label">
-                          Preview ({documentPreview.name})
+                          {documentPreview.name}
                         </div>
                         <div className="preview-frame">
                           <img
@@ -650,17 +851,61 @@ function App() {
                       </div>
                     )}
                   </div>
-                </div>
+                </article>
+
+                {backendPanResult && (
+                  <article className="step-card extraction-summary">
+                    <h4>PAN extraction</h4>
+                    <p>Status: {backendPanResult.status}</p>
+                    <p>Message: {backendPanResult.message}</p>
+                    <p>Extracted PAN: {backendPanResult.pan}</p>
+                    {backendPanResult.extracted_data?.name && (
+                      <p>Name (OCR): {backendPanResult.extracted_data.name}</p>
+                    )}
+                    {backendPanResult.extracted_data?.dob && (
+                      <p>DOB (OCR): {backendPanResult.extracted_data.dob}</p>
+                    )}
+                  </article>
+                )}
+
+                {backendAadhaarResult && (
+                  <article className="step-card extraction-summary">
+                    <h4>Aadhaar extraction</h4>
+                    <p>Status: {backendAadhaarResult.status}</p>
+                    <p>Message: {backendAadhaarResult.message}</p>
+                    <p>
+                      Extracted Aadhaar: {backendAadhaarResult.aadhaar}
+                    </p>
+                    {backendAadhaarResult.extracted_data?.name && (
+                      <p>
+                        Name (OCR):{" "}
+                        {backendAadhaarResult.extracted_data.name}
+                      </p>
+                    )}
+                    {backendAadhaarResult.extracted_data?.dob && (
+                      <p>
+                        DOB (OCR):{" "}
+                        {backendAadhaarResult.extracted_data.dob}
+                      </p>
+                    )}
+                    {backendAadhaarResult.extracted_data?.address && (
+                      <p>
+                        Address (OCR):{" "}
+                        {backendAadhaarResult.extracted_data.address}
+                      </p>
+                    )}
+                  </article>
+                )}
               </>
             )}
 
             {step.id === "selfie-check" && (
-              <div
+              <article
                 className="step-card selfie-block"
                 onMouseEnter={() => setHoverContext("selfie")}
                 onMouseLeave={() => setHoverContext(null)}
               >
-                <h3>Selfie / liveness capture</h3>
+                <h3>Selfie liveness capture</h3>
                 <p>
                   Allow camera access and follow the prompts: first look
                   straight, then close your eyes, then open them again.
@@ -674,7 +919,7 @@ function App() {
                         className="live-video"
                         autoPlay
                         playsInline
-                        muted
+                        muted={!streamRef.current}
                       />
                       {!streamRef.current && (
                         <div className="live-video-overlay">
@@ -683,7 +928,6 @@ function App() {
                         </div>
                       )}
                     </div>
-
                     <div className="selfie-actions-row">
                       <button
                         type="button"
@@ -701,12 +945,10 @@ function App() {
                         Capture frame
                       </button>
                     </div>
-
                     <span className="field-hint">
                       Keep your entire face visible. Perform the prompts within
                       the next few seconds.
                     </span>
-
                     {cameraError && (
                       <div className="error-banner selfie-error">
                         {cameraError}
@@ -740,7 +982,7 @@ function App() {
                   ref={canvasRef}
                   style={{ display: "none" }}
                 />
-              </div>
+              </article>
             )}
 
             {step.id === "risk-checks" && (
@@ -750,9 +992,7 @@ function App() {
                   onMouseEnter={() => setHoverContext("sanctions-check")}
                   onMouseLeave={() => setHoverContext(null)}
                 >
-                  <div className="card-icon-circle card-icon-blue">
-                    🔍
-                  </div>
+                  <div className="card-icon-circle card-icon-blue" />
                   <h3>Sanctions screening</h3>
                   <p>
                     We match your details against global sanctions and
@@ -764,9 +1004,7 @@ function App() {
                   onMouseEnter={() => setHoverContext("pep-check")}
                   onMouseLeave={() => setHoverContext(null)}
                 >
-                  <div className="card-icon-circle card-icon-amber">
-                    🏛️
-                  </div>
+                  <div className="card-icon-circle card-icon-amber" />
                   <h3>PEP checks</h3>
                   <p>
                     Politically exposed person checks help us configure the
@@ -778,35 +1016,35 @@ function App() {
                   onMouseEnter={() => setHoverContext("risk-score")}
                   onMouseLeave={() => setHoverContext(null)}
                 >
-                  <div className="card-icon-circle card-icon-green">
-                    📈
-                  </div>
+                  <div className="card-icon-circle card-icon-green" />
                   <h3>Risk scoring</h3>
                   <p>
-                    Our engine uses rules and models to score risk and highlight
-                    unusual patterns.
+                    Our engine uses rules and models to score risk and
+                    highlight unusual patterns.
                   </p>
                 </article>
               </>
             )}
 
             {step.id === "completed" && (
-              <div
+              <article
                 className="step-card completed-block"
                 onMouseEnter={() => setHoverContext("submit-form")}
                 onMouseLeave={() => setHoverContext(null)}
               >
-                <div className="completed-icon-large">📨</div>
+                <div className="completed-icon-large" />
                 <h3>Ready to submit</h3>
                 <p>
                   All required information is in place. Submit your KYC form to
                   trigger final verification.
                 </p>
-              </div>
-            )}
-
-            {(error || cameraError) && (
-              <div className="error-banner">{error || cameraError}</div>
+                {error && (
+                  <div className="error-banner error">{error}</div>
+                )}
+                {apiError && (
+                  <div className="error-banner error">{apiError}</div>
+                )}
+              </article>
             )}
           </div>
 
@@ -854,16 +1092,36 @@ function App() {
               </button>
             )}
 
+            {step.id === "document-upload" && (
+              <button
+                type="button"
+                className="btn-primary"
+                onClick={goNext}
+                disabled={
+                  !backendPanResult && !backendAadhaarResult
+                }
+              >
+                Skip to next
+              </button>
+            )}
+
             {step.id === "completed" && (
               <button
                 type="button"
                 className="btn-primary"
                 onClick={handleSubmitForm}
+                disabled={isLoading}
               >
-                Submit verification form
+                {isLoading ? "Submitting..." : "Submit verification form"}
               </button>
             )}
           </div>
+
+          {(error || cameraError || otpError || apiError) && (
+            <div className="error-banner error">
+              {error || cameraError || otpError || apiError}
+            </div>
+          )}
         </section>
 
         <VerticalProgress
@@ -871,13 +1129,13 @@ function App() {
           currentStep={currentStep}
           totalSteps={totalSteps}
         />
-
         <FinBot
           step={step}
           stepIndex={currentStep}
           totalSteps={totalSteps}
-          hasError={Boolean(error) || Boolean(cameraError) || Boolean(otpError)}
+          hasError={Boolean(error || cameraError || otpError || apiError)}
           lastSuccessStep={lastSuccessStep}
+          status={selectedStatus}
           hoverContext={hoverContext}
         />
       </main>
@@ -892,16 +1150,14 @@ function VerticalProgress({ progress, currentStep, totalSteps }) {
         <div
           className="vertical-fill"
           style={{ height: `${progress}%` }}
-        >
-          <div className="vertical-fill-label">{progress}%</div>
-        </div>
+        />
+        <div className="vertical-fill-label">{progress}%</div>
       </div>
-
       <div className="vertical-arrow-info">
         <div className="arrow-line" />
         <div className="arrow-head" />
         <div className="arrow-content">
-          <div className="arrow-emojis">💳 ✨ 📊</div>
+          <div className="arrow-emojis" />
           <div className="arrow-text">
             {progress}% complete
             <span className="arrow-sub">
@@ -924,10 +1180,11 @@ function FinBot({
   hoverContext,
 }) {
   const isCompleted = step.id === "completed";
-  const isHappy =
-    isCompleted ||
-    (!hasError && (lastSuccessStep || status === "ACCEPTED"));
-  const isSad = hasError || status === "FLAGGED" || status === "REPORTED";
+  const isHappy = isCompleted && !hasError && status === "ACCEPTED";
+  const isSad =
+    hasError ||
+    status === "FLAGGED" ||
+    status === "REPORTED";
   const isNeutral = !isHappy && !isSad;
 
   const hoverMessages = {
@@ -938,7 +1195,8 @@ function FinBot({
     "full-name":
       "Enter your full legal name exactly as on your official ID document.",
     dob: "Use the same date of birth that appears on your ID.",
-    country: "We use your country of residence to apply the correct KYC rules.",
+    country:
+      "We use your country of residence to apply the correct KYC rules.",
     phone:
       "Use a mobile number you can access right now so you can enter the OTP.",
     "document-type":
@@ -958,7 +1216,6 @@ function FinBot({
   };
 
   const hoverText = hoverContext ? hoverMessages[hoverContext] : null;
-
   const positionClass = hoverContext
     ? "bot-pos-near-cards"
     : "bot-pos-near-progress";
@@ -966,29 +1223,30 @@ function FinBot({
   return (
     <div className={`bot-stage ${positionClass}`}>
       <div className="bot-orbit-glow" />
-
       <div
         className={[
           "bot-body-shell",
           isHappy ? "bot-state-happy" : "",
           isSad ? "bot-state-sad" : "",
           isNeutral ? "bot-state-neutral" : "",
-        ].join(" ")}
+        ]
+          .filter(Boolean)
+          .join(" ")}
       >
         <div className="bot-head-shell">
-          <div className="bot-head-top" />
-          <div className="bot-face-shell">
-            <div className="bot-face">
-              <div className="bot-eye eye-left" />
-              <div className="bot-eye eye-right" />
-              <div className="bot-smile" />
+          <div className="bot-head-top">
+            <div className="bot-face-shell">
+              <div className="bot-face">
+                <div className="bot-eye eye-left" />
+                <div className="bot-eye eye-right" />
+                <div className="bot-smile" />
+              </div>
+            </div>
+            <div className="bot-antenna-shell">
+              <span className="antenna-light" />
             </div>
           </div>
-          <div className="bot-antenna-shell">
-            <span className="antenna-light" />
-          </div>
         </div>
-
         <div className="bot-body-core-shell">
           <div className="bot-body-core-panel">
             <div className="bot-body-meter" />
@@ -997,33 +1255,37 @@ function FinBot({
           <div className="bot-arms-shell">
             <div
               className={[
-                "bot-arm-shell left",
+                "bot-arm-shell",
+                "left",
                 stepIndex === 0 ? "arm-wave" : "",
-              ].join(" ")}
+              ]
+                .filter(Boolean)
+                .join(" ")}
             >
               <span className="bot-hand-glow" />
             </div>
             <div
               className={[
-                "bot-arm-shell right",
-                isCompleted || status === "ACCEPTED"
+                "bot-arm-shell",
+                "right",
+                isCompleted && status === "ACCEPTED"
                   ? "arm-thumbsup"
                   : stepIndex === 2
                   ? "arm-point"
                   : "",
-              ].join(" ")}
+              ]
+                .filter(Boolean)
+                .join(" ")}
             >
               <span className="bot-hand-glow" />
             </div>
           </div>
-        </div>
-
-        <div className="bot-feet-shell">
-          <div className="bot-foot left" />
-          <div className="bot-foot right" />
+          <div className="bot-feet-shell">
+            <div className="bot-foot left" />
+            <div className="bot-foot right" />
+          </div>
         </div>
       </div>
-
       <div className="bot-speech">
         <div className="speech-header">
           <span className="speech-title">FinBot</span>
@@ -1032,13 +1294,11 @@ function FinBot({
         <p className="speech-main">
           {hasError
             ? "Check your inputs, uploads, camera, or OTP and then try again."
-            : hoverText
-            ? hoverText
-            : step.message}
+            : hoverText || step.message}
         </p>
         <p className="speech-sub">
           {isCompleted && status
-            ? `Current status: ${status?.replace(
+            ? `Current status: ${status.replace(
                 "_",
                 " "
               )}. You can revisit this page from your profile.`
