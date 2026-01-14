@@ -1,0 +1,94 @@
+/* src/KYCVerification.css */
+
+.kyc-page {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  min-height: 100vh;
+  padding: 40px 20px;
+  background-color: #ffffff;
+}
+
+.company-header {
+  color: #2563eb;
+  font-size: 1rem;
+  font-weight: 800;
+  letter-spacing: 2px;
+  margin-bottom: 60px;
+}
+
+.kyc-content {
+  flex: 1;
+  text-align: center;
+  width: 100%;
+  max-width: 800px; /* Wider container for horizontal items */
+}
+
+.kyc-title {
+  font-size: 2.2rem;
+  font-weight: 900;
+  margin-bottom: 10px;
+}
+
+.kyc-subtitle {
+  color: #718096;
+  font-weight: 600;
+  margin-bottom: 50px;
+}
+
+/* THE HORIZONTAL ROW */
+.requirement-row {
+  display: flex;
+  flex-direction: row; /* Horizontal alignment */
+  justify-content: center;
+  gap: 25px; /* Space between the cards */
+  flex-wrap: wrap; /* Wraps to next line on small mobile screens */
+}
+
+.requirement-card {
+  display: flex;
+  flex-direction: column; /* Icon on top, Text on bottom */
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 20px;
+  width: 180px; /* Fixed width for symmetry */
+  transition: all 0.3s ease;
+}
+
+.requirement-card:hover {
+  transform: translateY(-5px);
+  border-color: #2563eb;
+  background: #f0f7ff;
+}
+
+.kyc-icon {
+  width: 60px;
+  height: 60px;
+  margin-bottom: 15px;
+  object-fit: contain;
+}
+
+.req-title {
+  font-weight: 700;
+  color: #1a202c;
+  font-size: 0.9rem;
+  text-align: center;
+}
+
+.get-started-btn {
+  width: 100%;
+  max-width: 400px;
+  background-color: #2563eb;
+  color: white;
+  padding: 18px;
+  border: none;
+  border-radius: 14px;
+  font-size: 1.1rem;
+  font-weight: bold;
+  cursor: pointer;
+  margin-top: 50px;
+  box-shadow: 0 10px 15px -3px rgba(37, 99, 235, 0.3);
+}
