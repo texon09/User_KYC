@@ -1,0 +1,731 @@
+/* --- CORE THEME & LAYOUT --- */
+:root {
+  --bg-dark: #050510;
+  --panel-bg: rgba(13, 13, 31, 0.7);
+  --accent-blue: #3b82f6;
+  --accent-green: #10b981;
+  --accent-red: #ef4444;
+  --accent-purple: #a855f7;
+  --glass-border: rgba(255, 255, 255, 0.08);
+  --text-dim: #94a3b8;
+}
+
+/* --- LAYOUT FIXES --- */
+.dashboard-layout {
+  display: flex;
+  height: 100vh;
+  width: 100vw;
+  background-color: #050510;
+  overflow: hidden;
+}
+
+/* Sidebar: Forces buttons into a vertical stack */
+.sidebar {
+  width: 260px;
+  background: #08081a;
+  display: flex;
+  flex-direction: column; 
+  border-right: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.nav-menu {
+  flex: 1;
+  display: flex;
+  flex-direction: column; /* Vertical list */
+  gap: 10px;
+  padding: 20px 15px;
+}
+
+.nav-btn {
+  background: transparent;
+  border: none;
+  color: #94a3b8;
+  padding: 12px 18px;
+  text-align: left;
+  cursor: pointer;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  transition: 0.3s;
+}
+
+.nav-btn.active {
+  background: rgba(59, 130, 246, 0.1);
+  color: #3b82f6;
+  border-left: 3px solid #3b82f6;
+}
+
+/* --- MAIN CONTENT SCALING --- */
+.main-viewport {
+  flex: 1;
+  padding: 25px;
+  overflow-y: auto;
+  background: radial-gradient(circle at 50% 0%, #111135 0%, #050510 100%);
+}
+
+/* KPI Grid: Exactly 4 small cards in a row */
+.kpi-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 15px;
+  margin-bottom: 25px;
+}
+
+.kpi-card-vibrant {
+  background: #11112b;
+  padding: 15px 20px;
+  border-radius: 14px;
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+  min-height: 110px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
+/* Individual Glow Colors */
+.box-red { border-top: 3px solid #ef4444; }
+.box-blue { border-top: 3px solid #3b82f6; }
+.box-green { border-top: 3px solid #10b981; }
+.box-purple { border-top: 3px solid #a855f7; }
+
+.kpi-label {
+  font-size: 0.7rem;
+  font-weight: 800;
+  color: #94a3b8;
+  letter-spacing: 0.5px;
+}
+
+.value-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  margin: 8px 0;
+}
+
+.value-row h2 {
+  font-size: 1.8rem; /* Professional size, not too big */
+  margin: 0;
+  color: #fff;
+}
+
+.kpi-trend {
+  font-size: 0.75rem;
+  color: #64748b;
+  font-weight: 600;
+}
+
+.kpi-trend.positive { color: #10b981; }
+/* 1. SOLID KPI CARDS (Replaces the "Colorless" look) */
+.kpi-card-vibrant {
+  background: #11112b; /* Solid dark blue */
+  padding: 25px;
+  border-radius: 16px;
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  box-shadow: 0 10px 20px rgba(0,0,0,0.3);
+  transition: 0.3s ease;
+}
+
+.kpi-card-vibrant:hover { transform: translateY(-5px); border-color: rgba(255,255,255,0.2); }
+
+/* Solid Glow Colors for the Top Bar of Cards */
+.box-red { border-top: 4px solid #ef4444; box-shadow: 0 5px 15px rgba(239, 68, 68, 0.1); }
+.box-blue { border-top: 4px solid #3b82f6; box-shadow: 0 5px 15px rgba(59, 130, 246, 0.1); }
+.box-green { border-top: 4px solid #10b981; box-shadow: 0 5px 15px rgba(16, 185, 129, 0.1); }
+.box-purple { border-top: 4px solid #a855f7; box-shadow: 0 5px 15px rgba(168, 85, 247, 0.1); }
+
+.value-row { display: flex; justify-content: space-between; align-items: center; margin: 10px 0; }
+.value-row h2 { font-size: 2.5rem; color: #fff; margin: 0; letter-spacing: -1px; }
+
+/* --- LOWER BLOCKS ---
+
+/* 3. PERFORMANCE RINGS */
+.stat-circle-group { display: flex; justify-content: space-around; padding: 20px 0; }
+.ring {
+  width: 80px; height: 80px; border-radius: 50%;
+  border: 4px solid #1a1a35;
+  display: flex; align-items: center; justify-content: center;
+  font-weight: bold; font-size: 1.2rem; margin-bottom: 8px;
+}
+.blue-text { color: #3b82f6; border-top-color: #3b82f6; }
+.green-text { color: #10b981; border-top-color: #10b981; }
+
+/* 4. AUDIT LIST COLOR */
+.audit-list-vibrant { display: flex; flex-direction: column; gap: 12px; margin-top: 15px; }
+.audit-row-item {
+  background: rgba(255, 255, 255, 0.03);
+  padding: 12px;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  border: 1px solid transparent;
+}
+.audit-row-item:hover { background: rgba(255, 255, 255, 0.05); border-color: #3b82f6; }
+
+.log-avatar {
+  width: 35px; height: 35px; background: #3b82f6;
+  border-radius: 8px; display: flex; align-items: center; justify-content: center;
+  font-weight: bold; color: white;
+}
+
+.log-info p { margin: 0; font-size: 0.9rem; color: #e2e8f0; }
+.log-date { font-size: 0.75rem; color: #64748b; }
+
+/* 5. UTILS */
+.pulse-dot {
+  width: 10px; height: 10px; background: #ef4444; border-radius: 50%;
+  box-shadow: 0 0 10px #ef4444; animation: pulse 2s infinite;
+}
+@keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.4; } 100% { opacity: 1; } }
+
+/* --- CASE REVIEW BLOCKS --- */
+.cr-table { color:white ;border:wheat;width: 100%; border-spacing: 0 12px; border-collapse: separate; }
+.cr-row { cursor: pointer; transition: 0.3s; }
+.cr-row:hover { background: rgba(255,255,255,0.03) !important; transform: scale(1.008); }
+.cr-td { padding: 20px; border-top: 1px solid var(--glass-border); border-bottom: 1px solid var(--glass-border); }
+.cr-td:first-child { border-radius: 16px 0 0 16px; border-left: 1px solid var(--glass-border); }
+.cr-td:last-child { border-radius: 0 16px 16px 0; border-right: 1px solid var(--glass-border); }
+
+/* --- ANALYTICS BARS --- */
+.ana-bar-chart { display: flex; align-items: flex-end; justify-content: space-around; height: 220px; padding: 20px; }
+.ana-bar-pill {
+  width: 40px; border-radius: 10px 10px 4px 4px;
+  background: linear-gradient(180deg, var(--accent-blue) 0%, #1d4ed8 100%);
+  position: relative; transition: 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+.ana-bar-pill:hover { filter: brightness(1.3); transform: scaleX(1.1); }
+
+/* --- SHIMMER EFFECT FOR PROGRESS BARS --- */
+.ana-progress-fill {
+  position: relative; overflow: hidden;
+}
+.ana-progress-fill::after {
+  content: ""; position: absolute; top: 0; left: -100%; width: 100%; height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.3), transparent);
+  animation: shimmer 2s infinite;
+}
+
+@keyframes shimmer { 100% { left: 100%; } }
+
+/* --- LOGS --- */
+.log-entry.modern {
+  display: flex; gap: 15px; padding: 15px; border-radius: 12px;
+  margin-bottom: 8px; border: 1px solid transparent; transition: 0.2s;
+}
+.log-entry.modern:hover { background: rgba(255,255,255,0.02); border-color: var(--glass-border); }
+
+/* --- UTILS --- */
+.text-glow { color: #fff; text-shadow: 0 0 20px rgba(59, 130, 246, 0.5); }
+.animated-fade { animation: fadeInUp 0.6s ease-out; }
+@keyframes fadeInUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+/* --- CASE REVIEW HOVERS --- */
+.cr-row {
+  background-color: #0d0d1f !important;
+  transition: all 0.3s ease !important;
+  cursor: pointer;
+}
+
+.cr-row:hover {
+  background-color: #161633 !important;
+  transform: scale(1.005) translateY(-2px);
+  box-shadow: 0 10px 20px rgba(0,0,0,0.4);
+}
+
+.cr-btn {
+  transition: all 0.3s ease !important;
+}
+
+.cr-btn:hover {
+  filter: brightness(1.2);
+  box-shadow: 0 0 15px rgba(59, 130, 246, 0.4);
+  transform: translateY(-1px);
+}
+
+/* --- UTILS --- */
+.text-glow { 
+    color: #fff; 
+    text-shadow: 0 0 20px rgba(59, 130, 246, 0.4); 
+}
+
+@keyframes fadeIn { 
+    from { opacity: 0; transform: translateY(15px); } 
+    to { opacity: 1; transform: translateY(0); } 
+}
+/* --- UPDATED CASE REVIEW STYLES (Matching cr- prefix) --- */
+.cr-section {
+  padding: 10px;
+  width: 100%;
+}
+
+.cr-header h2 {
+  font-size: 1.8rem;
+  margin-bottom: 20px;
+  color: #00d2ff;
+  text-shadow: 0 0 10px rgba(0, 210, 255, 0.3);
+}
+
+.cr-filter-bar {
+  display: flex;
+  gap: 12px;
+  margin-bottom: 25px;
+}
+
+.cr-pill {
+  background: #111125;
+  border: 1px solid #1e1e38;
+  color: #94a3b8;
+  padding: 8px 18px;
+  border-radius: 20px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  font-weight: 600;
+}
+
+/* Glow effect when the filter is selected */
+.cr-pill.active {
+  background: #3b82f6;
+  color: white;
+  border-color: #3b82f6;
+  box-shadow: 0 0 15px rgba(59, 130, 246, 0.4);
+}
+
+/* THE TABLE BLOCKS */
+.cr-table {
+  width: 100% !important;
+  border-collapse: separate !important;
+  border-spacing: 0 12px !important; /* This creates the block spacing */
+}
+
+.cr-row {
+  background-color: #0d0d1f !important;
+  transition: transform 0.2s ease;
+}
+
+.cr-row:hover {
+  background-color: #12122b !important;
+  transform: scale(1.01);
+}
+
+.cr-td {
+  padding: 20px 15px !important;
+  color: #ffffff !important;
+  border-top: 1px solid rgba(255, 255, 255, 0.05) !important;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05) !important;
+}
+
+/* Rounding the corners of the row blocks */
+.cr-td:first-child { 
+  border-radius: 12px 0 0 12px !important; 
+  border-left: 1px solid rgba(255, 255, 255, 0.05) !important;
+}
+.cr-td:last-child { 
+  border-radius: 0 12px 12px 0 !important; 
+  border-right: 1px solid rgba(255, 255, 255, 0.05) !important;
+}
+
+/* BADGES & TEXT */
+.cr-status {
+  padding: 5px 10px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: bold;
+  text-transform: uppercase;
+}
+.cr-status.pending { background: rgba(245, 158, 11, 0.2); color: #f59e0b; }
+
+.cr-risk {
+  padding: 5px 10px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: bold;
+}
+.cr-risk.critical { background: #ff0000; color: white; }
+.cr-risk.high { background: #d9534f; color: white; }
+.cr-risk.medium { background: #f59e0b; color: black; }
+
+.cr-btn {
+  background: #3b82f6 !important;
+  color: white !important;
+  border: none !important;
+  padding: 8px 16px !important;
+  border-radius: 6px !important;
+  cursor: pointer !important;
+  font-weight: bold !important;
+}
+
+.cr-name { display: block; font-weight: bold; color: #00d2ff; font-size: 1.1rem; }
+.cr-id { font-size: 11px; color: #475569; }
+.cr-dim { color: #64748b; font-size: 0.9rem; }
+
+
+/* ANALYTICS PART */
+/* --- ANALYTICS SPECIFIC LAYOUT --- */
+.analytics-grid-main {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 25px;
+  margin-top: 20px;
+}
+
+.ana-card {
+  background: #0d0d1f;
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  border-radius: 16px;
+  padding: 25px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+}
+
+.full-width { grid-column: span 2; }
+.ana-card h3 { font-size: 1rem; color: #888; margin-bottom: 20px; }
+
+/* PERFORMANCE PROGRESS BARS */
+.ana-perf-item { margin-bottom: 20px; }
+.ana-perf-info { display: flex; justify-content: space-between; font-size: 0.85rem; margin-bottom: 8px; }
+.ana-progress-bg { height: 8px; background: #1a1a35; border-radius: 10px; overflow: hidden; }
+.ana-progress-fill { height: 100%; border-radius: 10px; transition: width 1s ease; }
+.ana-progress-fill.blue { background: #3b82f6; box-shadow: 0 0 10px #3b82f6; }
+.ana-progress-fill.green { background: #10b981; box-shadow: 0 0 10px #10b981; }
+.ana-progress-fill.purple { background: #a855f7; box-shadow: 0 0 10px #a855f7; }
+
+/* CSS PIE CHART */
+.ana-pie-wrapper { display: flex; align-items: center; gap: 30px; justify-content: center; }
+.ana-pie-chart {
+  width: 140px;
+  height: 140px;
+  border-radius: 50%;
+  background: conic-gradient(
+    #10b981 0% 70%, 
+    #f59e0b 70% 90%, 
+    #ef4444 90% 100%
+  );
+  box-shadow: 0 0 20px rgba(0,0,0,0.5);
+  position: relative;
+}
+/* Hole in the middle for Donut look */
+.ana-pie-chart::after {
+  content: ""; position: absolute; top: 50%; left: 50%;
+  transform: translate(-50%, -50%);
+  width: 70px; height: 70px; background: #0d0d1f; border-radius: 50%;
+}
+
+.ana-pie-legend { display: flex; flex-direction: column; gap: 10px; }
+.leg-item { font-size: 0.85rem; color: #aaa; display: flex; align-items: center; gap: 8px; }
+.dot { width: 10px; height: 10px; border-radius: 50%; }
+.dot.green { background: #10b981; }
+.dot.yellow { background: #f59e0b; }
+.dot.red { background: #ef4444; }
+
+/* IMPROVED BAR CHART */
+.ana-bar-chart {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-around;
+  height: 200px;
+  padding-top: 20px;
+}
+
+.ana-bar-col { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 10px; }
+.ana-bar-pill {
+  width: 35px;
+  background: linear-gradient(to top, #3b82f6, #00d2ff);
+  border-radius: 8px 8px 4px 4px;
+  position: relative;
+  transition: all 0.3s ease;
+  cursor: pointer;
+}
+
+.ana-bar-pill:hover {
+  filter: brightness(1.3);
+  transform: scaleY(1.05);
+}
+
+.ana-tooltip {
+  position: absolute; top: -25px; left: 50%; transform: translateX(-50%);
+  font-size: 10px; background: #fff; color: #000; padding: 2px 5px;
+  border-radius: 4px; opacity: 0; transition: 0.3s;
+}
+
+.ana-bar-pill:hover .ana-tooltip { opacity: 1; }
+.ana-bar-label { font-size: 0.75rem; color: #555; }
+/* --- ANALYTICS HOVER EFFECTS --- */
+
+/* 1. Card Hover: Lift and Glow */
+.ana-card {
+  transition: transform 0.3s ease, border-color 0.3s ease, box-shadow 0.3s ease;
+}
+
+.ana-card:hover {
+  transform: translateY(-5px);
+  border-color: rgba(59, 130, 246, 0.3);
+  box-shadow: 0 15px 40px rgba(0, 0, 0, 0.5), 0 0 15px rgba(59, 130, 246, 0.1);
+}
+
+/* 2. Progress Bar Hover: Intensity Increase */
+.ana-perf-item {
+  cursor: default;
+}
+
+.ana-perf-item:hover .ana-progress-fill {
+  filter: brightness(1.2);
+  box-shadow: 0 0 15px currentColor; /* Glow based on the bar color */
+}
+
+/* 3. Bar Chart Hover Part (Updated) */
+.ana-bar-pill {
+  width: 35px;
+  background: linear-gradient(to top, #3b82f6, #00d2ff);
+  border-radius: 8px 8px 4px 4px;
+  position: relative;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); /* Smoother bounce */
+  cursor: pointer;
+}
+
+/* Updated Hover State for Bar Pills */
+.ana-bar-pill:hover {
+  filter: saturate(1.5) brightness(1.2);
+  transform: scaleX(1.1); /* Slightly wider on hover */
+  box-shadow: 0 0 20px rgba(59, 130, 246, 0.4);
+}
+
+/* Tooltip Reveal */
+.ana-tooltip {
+  position: absolute; 
+  top: -30px; /* Slightly higher */
+  left: 50%; 
+  transform: translateX(-50%) translateY(10px);
+  font-size: 11px; 
+  font-weight: bold;
+  background: #fff; 
+  color: #050510; 
+  padding: 4px 8px;
+  border-radius: 6px; 
+  opacity: 0; 
+  pointer-events: none;
+  transition: all 0.2s ease;
+  box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+}
+
+/* Triangle for Tooltip */
+.ana-tooltip::after {
+  content: "";
+  position: absolute;
+  bottom: -4px;
+  left: 50%;
+  transform: translateX(-50%);
+  border-left: 5px solid transparent;
+  border-right: 5px solid transparent;
+  border-top: 5px solid #fff;
+}
+
+.ana-bar-pill:hover .ana-tooltip { 
+  opacity: 1; 
+  transform: translateX(-50%) translateY(0px); /* Slides up into place */
+}
+
+/* 4. Donut Chart Hover */
+.ana-pie-chart {
+  transition: transform 0.4s ease;
+  cursor: pointer;
+}
+
+.ana-pie-chart:hover {
+  transform: rotate(5deg) scale(1.05);
+}
+
+/* 5. Legend Interaction */
+.leg-item {
+  transition: all 0.2s ease;
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: 6px;
+}
+
+.leg-item:hover {
+  background: rgba(255, 255, 255, 0.05);
+  color: #fff;
+  transform: translateX(5px);
+}
+
+
+/* HIDDEN FOR WORKERS */
+.restricted-notice {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 60vh;
+  text-align: center;
+  background: rgba(13, 13, 31, 0.8);
+  border-radius: 20px;
+  border: 1px dashed #3b82f6;
+  padding: 40px;
+}
+
+.restricted-notice h2 {
+  font-size: 2rem;
+  color: #ef4444;
+  margin-bottom: 10px;
+}
+
+.restricted-notice p {
+  color: #94a3b8;
+  margin-bottom: 25px;
+}
+
+
+
+/* --- SIDEBAR FOOTER CONTAINER --- */
+.sidebar-footer {
+  margin-top: auto; /* Pushes the footer to the bottom of the sidebar */
+  padding: 20px 15px;
+  border-top: 1px solid rgba(255, 255, 255, 0.05);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  background: rgba(0, 0, 0, 0.2); /* Slightly darker than sidebar */
+}
+
+/* --- USER TAG (Where Employee Name Appears) --- */
+.user-tag {
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: #fff;
+  background: rgba(59, 130, 246, 0.1);
+  padding: 10px;
+  border-radius: 8px;
+  text-align: center;
+  letter-spacing: 1px;
+  border: 1px solid rgba(59, 130, 246, 0.2);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis; /* Keeps long names from breaking the layout */
+  transition: all 0.3s ease;
+}
+
+.user-tag:hover {
+  background: rgba(59, 130, 246, 0.2);
+  border-color: #3b82f6;
+  box-shadow: 0 0 10px rgba(59, 130, 246, 0.2);
+}
+
+/* --- LOGOUT MINI BUTTON --- */
+.logout-mini {
+  background: rgba(239, 68, 68, 0.1);
+  color: #ef4444;
+  border: 1px solid rgba(239, 68, 68, 0.2);
+  padding: 8px;
+  border-radius: 6px;
+  font-size: 0.7rem;
+  font-weight: 800;
+  cursor: pointer;
+  text-transform: uppercase;
+  transition: all 0.2s ease;
+}
+
+.logout-mini:hover {
+  background: #ef4444;
+  color: #fff;
+  box-shadow: 0 0 15px rgba(239, 68, 68, 0.4);
+}
+
+/* --- SIDEBAR NAV BUTTONS (Refinement) --- */
+.nav-menu {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 20px 15px;
+}
+
+.nav-btn {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: transparent;
+  border: none;
+  color: #94a3b8;
+  padding: 12px 15px;
+  border-radius: 10px;
+  cursor: pointer;
+  font-size: 0.85rem;
+  text-align: left;
+  transition: 0.3s;
+}
+
+.nav-btn.active {
+  background: linear-gradient(90deg, rgba(59, 130, 246, 0.15) 0%, transparent 100%);
+  color: #3b82f6;
+  border-left: 3px solid #3b82f6;
+}
+
+
+
+/* --- SETTINGS TAB STYLING --- */
+.settings-card {
+  background: rgba(13, 13, 31, 0.7);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  border-radius: 20px;
+  padding: 30px;
+  max-width: 500px;
+  margin-top: 20px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+}
+
+.settings-card p {
+  color: #94a3b8;
+  font-size: 0.95rem;
+  margin-bottom: 15px;
+  display: flex;
+  justify-content: space-between;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.03);
+  padding-bottom: 10px;
+}
+
+.settings-card strong {
+  color: #3b82f6; /* Accent color for the Role/Name */
+  text-shadow: 0 0 10px rgba(59, 130, 246, 0.3);
+}
+
+/* --- LOGOUT BUTTON (Settings Page) --- */
+.logout-btn {
+  width: 100%;
+  background: linear-gradient(135deg, #ef4444 0%, #991b1b 100%);
+  color: white;
+  border: none;
+  padding: 14px;
+  border-radius: 10px;
+  font-weight: 700;
+  cursor: pointer;
+  margin-top: 10px;
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.logout-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 5px 15px rgba(239, 68, 68, 0.4);
+}
+
+/* --- TAB TRANSITIONS & CONTAINERS --- */
+.tab-pane {
+  padding: 10px;
+}
+
+.animated-fade {
+  animation: fadeIn 0.4s ease-out;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* --- TEXT GLOW EFFECT --- */
+.text-glow {
+  color: #fff;
+  text-shadow: 0 0 15px rgba(255, 255, 255, 0.2);
+  font-weight: 800;
+  letter-spacing: -0.5px;
+  margin-bottom: 25px;
+}
