@@ -21,7 +21,7 @@ const KYC_STEPS = [
     title: "Document upload",
     message:
       "Upload a clear copy of your government-issued identity document.",
-    hint: "Max size 5 MB. Accepted: PAN, Aadhaar, Passport.",
+    hint: "Max size 5 MB. Accepted: PAN, Aadhaar, Driving License.",
   },
   {
     id: "selfie-check",
@@ -425,7 +425,7 @@ function App() {
 
       <header className="kyc-topbar">
         <div className="topbar-left">
-          <div className="brand-mark">FinKYC</div>
+          <div className="brand-mark">AstuComply</div>
           <div className="brand-subtitle">
             Secure KYC & AML verification
           </div>
@@ -444,7 +444,7 @@ function App() {
       <main className="main-layout">
         <section className="steps-column">
           <div className="canvas-header">
-            <p className="step-chip">Identity verification flow</p>
+            <p className="step-chip">KYC verification flow</p>
             <h1>{step.title}</h1>
             <p className="canvas-message">{step.message}</p>
             <p className="canvas-hint">{step.hint}</p>
@@ -459,10 +459,11 @@ function App() {
                   onMouseLeave={() => setHoverContext(null)}
                 >
                   <div className="gamified-icon">🎮</div>
-                  <h3>Level 1: Get started</h3>
+                  <h3> Getting started</h3>
                   <p>
                     You are beginning your KYC journey. Complete each step to
-                    unlock your verified account badge.
+                    sucessfully verify your account.
+                    You may proceed further.
                   </p>
                 </article>
                 <article
@@ -475,6 +476,7 @@ function App() {
                   <p>
                     KYC and AML checks help keep your funds and identity
                     protected.
+
                   </p>
                 </article>
               </>
@@ -564,8 +566,7 @@ function App() {
                     </button>
                   </div>
                   <span className="field-hint">
-                    An OTP will be sent to this number. Verify it before
-                    continuing.
+                    An OTP will be sent to this number.
                   </span>
                   {otpVerified && (
                     <div className="otp-success">Mobile number verified.</div>
@@ -589,7 +590,7 @@ function App() {
                     <select>
                       <option>PAN</option>
                       <option>Aadhaar</option>
-                      <option>Passport</option>
+                      <option>Driving Liscence </option>
                     </select>
                   </label>
                 </div>
@@ -703,8 +704,7 @@ function App() {
                     </div>
 
                     <span className="field-hint">
-                      Keep your entire face visible. Perform the prompts within
-                      the next few seconds.
+                      Keep your entire face visible. Make sure you look directly into     the                   camera for the next few seconds.
                     </span>
 
                     {cameraError && (
@@ -1026,7 +1026,7 @@ function FinBot({
 
       <div className="bot-speech">
         <div className="speech-header">
-          <span className="speech-title">FinBot</span>
+          <span className="speech-title">AstuComply</span>
           <span className="speech-tag">Your KYC guide</span>
         </div>
         <p className="speech-main">
